@@ -1,6 +1,7 @@
 #I should change the classes so that create image creates an image from 3 inputted bands.
 import numpy as np
 import pdb
+import time
 from osgeo import gdal, ogr
 
 class landsat8Scene:
@@ -65,40 +66,45 @@ class landsat8Scene:
 		
 		#NDVI ranges from 0 to 1,
 		#NDVI = (NIR - VIR)/(NIR + VIR)
-		NDVIs = np.subtract(self.NIR, self.redBand)#.astype('float16')
+		NDVIs = np.subtract(self.NIR, self.redBand)
 
-		NDVIa = np.add(self.NIR, self.redBand)#.astype('float16')
+		NDVIa = np.add(self.NIR, self.redBand)
 
 		self.redBand = np.divide(NDVIs, NDVIa)
 		#Please note createImage, the array is of type int16, so the range needs to go from (-1, 1) to (0, 65535)
 		#I ran into some memory issues calculating the NDVI, so I compensated that by using a couple multiplications, instead of one.
-		self.redBand = np.add(np.multiply(self.redBand, 4096), 4096)
-		self.redBand = np.multiply(self.redBand, 8)
+		#self.redBand = np.add(np.multiply(self.redBand, 4096), 4096).astype('uint16')
+		self.redBand += 1
+		self.redBand = np.multiply(self.redBand, 4096).astype('uint16')
+		self.redBand *= 8
+		#self.redBand = np.multiply(self.redBand, 8)
 	
 	def getNDVIarray(self):
-		self.NIR = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['5'][0] + ".TIF").clip(0).astype('float16')
-		self.redBand = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['4'][0] + ".TIF").clip(0).astype('float16')
+		self.NIR = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['5'][0] + ".TIF")
+		self.redBand = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['4'][0] + ".TIF")
 		self.greenBand = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['4'][0] + ".TIF")
 		self.blueBand = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['3'][0] + ".TIF")
 		
 		aI, aJ = self.NIR.shape
-		self.NDVI = np.array([aI, aJ])
-		
+		NDVI = np.empty_like(self.NIR)
+		print self.NIR.dtype
 		#NDVI ranges from 0 to 1,
 		#NDVI = (NIR - VIR)/(NIR + VIR)
 		for i in range(0, aI):
 			for j in range(0, aJ):
-				NDVIa = self.NIR[i,j] + self.redBand[i,j]
+				NIRval = long(self.NIR[i,j])
+				redBandVal = long(self.redBand[i,j])
+				NDVIa = NIRval + redBandVal
 				
 				if NDVIa != 0:
-					NDVIs = self.NIR[i,j] - self.redBand[i,j]
-					NDVIval = NDVIs/NDVIa*65535
-					self.NDVI[i,j] = NDVIval
+					NDVIs = NIRval - redBandVal
+					NDVIval = (float(NDVIs)/float(NDVIa) + 1)*32768
+					NDVI[i,j] = int(NDVIval)
 				
 				else:
-					self.NDVI[i,j] = 0
-					
-		self.redBand = self.NDVI
+					NDVI[i,j] = 0
+
+		self.redBand = NDVI
 
 	def createImage(self, outputPath):
 		#Initializes the output image.
@@ -137,9 +143,17 @@ scene_id = "LC80260312014143LGN00"
 outputPic = "testImg"
 
 testScene = landsat8Scene(rootDir, scene_id)
+
+start = time.clock()
 testScene.getNDVI()
+print time.clock() - start
 testScene.createImage("testNDVINooverflow.tif")
-testScene.getRGB()
+
+#start = time.clock()
+#testScene.getNDVIarray()
+#print time.clock() - start
+#testScene.createImage("testNDVIArrayNooverflow.tif")
+#testScene.getRGB()
 #testScene.createImage("testRGB.tif")
 #testScene.getTestNDVI()
 #testScene.createImage("testNDVIcomp2.tif")
