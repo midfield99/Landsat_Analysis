@@ -46,6 +46,7 @@ class landsat8Scene:
 		self.greenBand = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['4'][0] + ".TIF")
 		self.blueBand = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['3'][0] + ".TIF")
 	
+	#Used in testing the NDVI image.
 	def getTestNDVI(self):
 		self.redBand = self.openRaster(self.rootDir + self.scene_id + "_NIRtest.TIF")
 		self.redBand = np.multiply(np.add(self.redBand, np.float32(1.0)), np.float32(65535/4.0)).astype('uint16')
@@ -78,33 +79,6 @@ class landsat8Scene:
 		self.redBand = np.multiply(self.redBand, 4096).astype('uint16')
 		self.redBand *= 8
 		#self.redBand = np.multiply(self.redBand, 8)
-	
-	def getNDVIarray(self):
-		self.NIR = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['5'][0] + ".TIF")
-		self.redBand = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['4'][0] + ".TIF")
-		self.greenBand = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['4'][0] + ".TIF")
-		self.blueBand = self.openRaster(self.rootDir + self.scene_id + self.landsatBands['3'][0] + ".TIF")
-		
-		aI, aJ = self.NIR.shape
-		NDVI = np.empty_like(self.NIR)
-		print self.NIR.dtype
-		#NDVI ranges from 0 to 1,
-		#NDVI = (NIR - VIR)/(NIR + VIR)
-		for i in range(0, aI):
-			for j in range(0, aJ):
-				NIRval = long(self.NIR[i,j])
-				redBandVal = long(self.redBand[i,j])
-				NDVIa = NIRval + redBandVal
-				
-				if NDVIa != 0:
-					NDVIs = NIRval - redBandVal
-					NDVIval = (float(NDVIs)/float(NDVIa) + 1)*32768
-					NDVI[i,j] = int(NDVIval)
-				
-				else:
-					NDVI[i,j] = 0
-
-		self.redBand = NDVI
 
 	def createImage(self, outputPath):
 		#Initializes the output image.
@@ -138,22 +112,3 @@ class landsat8Scene:
 		except:
 			print "There was an error opening the file: " + str(filePath)
 
-rootDir = "D:/Downloads/LC80260312014143LGN00.tar/LC80260312014143LGN00/"
-scene_id = "LC80260312014143LGN00"			
-outputPic = "testImg"
-
-testScene = landsat8Scene(rootDir, scene_id)
-
-start = time.clock()
-testScene.getNDVI()
-print time.clock() - start
-testScene.createImage("testNDVINooverflow.tif")
-
-#start = time.clock()
-#testScene.getNDVIarray()
-#print time.clock() - start
-#testScene.createImage("testNDVIArrayNooverflow.tif")
-#testScene.getRGB()
-#testScene.createImage("testRGB.tif")
-#testScene.getTestNDVI()
-#testScene.createImage("testNDVIcomp2.tif")
